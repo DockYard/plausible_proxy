@@ -15,7 +15,7 @@ end
 ```elixir
 defmodule MyAppWeb.Endpoint do
   ...
-  plug PlausibleProxy.Plug, path: "js/plausible_script.js"
+  plug PlausibleProxy.Plug
   plug MyAppWeb.Router
 end
 ```
@@ -23,5 +23,11 @@ end
 3.  Add a script tag to your site referencing the local path:
 
 ```html
-<script defer data-domain={MyAppWeb.Endpoint.config(:url)[:host]} src="/js/plausible_script.js"></script>
+<script
+  defer
+  data-domain="{MyAppWeb.Endpoint.config(:url)[:host]}"
+  src="/js/plausible_script.js"
+></script>
 ```
+
+See [PlausibleProxy.Plug](lib/plausible_proxy/plug.ex) for optional configuration.

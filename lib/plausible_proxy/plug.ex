@@ -1,13 +1,10 @@
 defmodule PlausibleProxy.Plug do
   @moduledoc """
-  Application vars:
-
-      config :plausible_proxy,
-        local_path: "some_path.js" (defaults to "/js/plausible_script.js")
-        allow_local: true (defaults to false) https://plausible.io/docs/script-extensions#all-our-script-extensions
-        remote_ip_headers: ["foo"] (defaults to ["fly-client-ip", "x-real-ip"])
 
   Plug Opts:
+      local_path: "/some_path.js" (defaults to "/js/plausible_script.js")
+      allow_local: true (defaults to false) https://plausible.io/docs/script-extensions#all-our-script-extensions
+      remote_ip_headers: ["foo"] (defaults to ["fly-client-ip", "x-real-ip"])
       event_callback_fn: Optional callback function when an event fires that receives the conn and payload
                         and returns {:ok, payload_modifiers}. payload_modifiers is a map
                         Supported payload_modifiers:
@@ -23,22 +20,24 @@ defmodule PlausibleProxy.Plug do
 
   @default_local_path "/js/plausible_script.js"
 
-  @local_path Application.compile_env(:plausible_proxy, :local_path, @default_local_path)
-
-  @local if Application.compile_env(:plausible_plug, :allow_local, false), do: ".local", else: ""
-
-  @script "https://plausible.io/js/script.tagged-events.pageview-props#{@local}.js"
-
   @impl Plug
   def init(opts) do
-    %{event_callback_fn: Keyword.get(opts, :event_callback_fn, fn _conn, _payload -> {:ok, %{}} end)}
+    %{
+      event_callback_fn: Keyword.get(opts, :event_callback_fn, fn _conn, _payload -> {:ok, %{}} end),
+      local_path: Keyword.get(opts, :local_path, @default_local_path),
+      allow_local: Keyword.get(opts, :allow_local, false),
+      remote_ip_headers: Keyword.get(opts, :remote_ip_headers, ["fly-client-ip", "x-real-ip"])
+    }
   end
 
-  @impl Plug
-  def call(%{request_path: @local_path} = conn, _opts) do
-    headers = build_headers(conn)
+  defp script(%{local: true}), do: "https://plausible.io/js/script.tagged-events.pageview-props.local.js"
+  defp script(%{local: false}), do: "https://plausible.io/js/script.tagged-events.pageview-props.js"
 
-    case HTTPoison.get(@script, headers) do
+  @impl Plug
+  def call(%{request_path: path} = conn, %{local_path: path} = opts) do
+    headers = build_headers(conn, opts)
+
+    case HTTPoison.get(script(opts), headers) do
       {:ok, resp} ->
         conn
         |> prepend_resp_headers(resp.headers)
@@ -54,7 +53,7 @@ defmodule PlausibleProxy.Plug do
     with {:ok, body, conn} <- read_body(conn),
          {:ok, payload} <- Jason.decode(body) |> IO.inspect(),
          {:ok, payload_modifiers} <- opts.event_callback_fn.(conn, payload),
-         {:ok, resp} <- post_event(conn, payload, payload_modifiers) do
+         {:ok, resp} <- post_event(conn, opts, payload, payload_modifiers) do
       conn
       |> prepend_resp_headers(resp.headers)
       |> send_resp(resp.status_code, resp.body)
@@ -72,9 +71,9 @@ defmodule PlausibleProxy.Plug do
     conn
   end
 
-  defp build_headers(conn, optional_headers \\ []) do
+  defp build_headers(conn, opts, optional_headers \\ []) do
     user_agent = get_one_header(conn, "user-agent")
-    ip_address = determine_ip_address(conn)
+    ip_address = determine_ip_address(conn, opts)
 
     [
       {"X-Forwarded-For", ip_address},
@@ -89,17 +88,13 @@ defmodule PlausibleProxy.Plug do
     |> List.first()
   end
 
-  def determine_ip_address(conn) do
-    Enum.find(remote_ip_headers(), &get_one_header(conn, &1)) ||
+  def determine_ip_address(conn, %{remote_ip_headers: remote_ip_headers}) do
+    Enum.find(remote_ip_headers, &get_one_header(conn, &1)) ||
       List.to_string(:inet.ntoa(conn.remote_ip))
   end
 
-  defp remote_ip_headers do
-    Application.get_env(:plausible_proxy, :remote_ip_headers, ["fly-client-ip", "x-real-ip"])
-  end
-
-  defp post_event(conn, payload, payload_modifiers) do
-    headers = build_headers(conn, [{"Content-Type", "application/json"}])
+  defp post_event(conn, opts, payload, payload_modifiers) do
+    headers = build_headers(conn, opts, [{"Content-Type", "application/json"}])
 
     body = %{
       "name" => payload["n"],
