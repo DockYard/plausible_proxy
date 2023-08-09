@@ -1,11 +1,6 @@
 # PlausibleProxy
 
-**TODO: Add description**
-
-## Installation
-
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `plausible_proxy` to your list of dependencies in `mix.exs`:
+1.  Add plausible_proxy to your mix dependencies
 
 ```elixir
 def deps do
@@ -15,7 +10,18 @@ def deps do
 end
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/plausible_proxy>.
+2.  Add PlausibleProxy.Plug to your Endpoint before your router:
 
+```elixir
+defmodule MyAppWeb.Endpoint do
+  ...
+  plug PlausibleProxy.Plug, path: "js/plausible_script.js"
+  plug MyAppWeb.Router
+end
+```
+
+3.  Add a script tag to your site referencing the local path:
+
+```html
+<script defer data-domain={MyAppWeb.Endpoint.config(:url)[:host]} src="/js/plausible_script.js"></script>
+```
