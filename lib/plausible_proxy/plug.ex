@@ -5,11 +5,11 @@ defmodule PlausibleProxy.Plug do
       local_path: "/some_path.js" (defaults to "/js/plausible_script.js")
       allow_local: true (defaults to false) https://plausible.io/docs/script-extensions#all-our-script-extensions
       remote_ip_headers: ["foo"] (defaults to ["fly-client-ip", "x-real-ip"])
-      event_callback_fn: Optional callback function when an event fires that receives the conn and payload
+      event_callback_fn: Optional callback function when an event fires that receives the conn, payload, and remote_ip
                         and returns {:ok, payload_modifiers}. payload_modifiers is a map
-                        Supported payload_modifiers:
-                          props: map of values to pass in the "props" value of the body
-                                 e.g. %{"company" => "DockYard"}
+                              Supported payload_modifiers:
+                                props: map of values to pass in the "props" value of the body
+                                        e.g. %{"company" => "DockYard"}
 
   """
   @behaviour Plug
@@ -23,7 +23,7 @@ defmodule PlausibleProxy.Plug do
   @impl Plug
   def init(opts) do
     %{
-      event_callback_fn: Keyword.get(opts, :event_callback_fn, fn _conn, _payload -> {:ok, %{}} end),
+      event_callback_fn: Keyword.get(opts, :event_callback_fn, fn _conn, _payload, _remote_ip -> {:ok, %{}} end),
       local_path: Keyword.get(opts, :local_path, @default_local_path),
       allow_local: Keyword.get(opts, :allow_local, false),
       remote_ip_headers: Keyword.get(opts, :remote_ip_headers, ["fly-client-ip", "x-real-ip"])
@@ -52,8 +52,9 @@ defmodule PlausibleProxy.Plug do
   def call(%Plug.Conn{request_path: "/api/event"} = conn, opts) do
     with {:ok, body, conn} <- read_body(conn),
          {:ok, payload} <- Jason.decode(body) |> IO.inspect(),
-         {:ok, payload_modifiers} <- opts.event_callback_fn.(conn, payload),
-         {:ok, resp} <- post_event(conn, opts, payload, payload_modifiers) do
+         remote_ip_address = determine_ip_address(conn, opts),
+         {:ok, payload_modifiers} <- opts.event_callback_fn.(conn, payload, remote_ip_address),
+         {:ok, resp} <- post_event(conn, payload, remote_ip_address, payload_modifiers) do
       conn
       |> prepend_resp_headers(resp.headers)
       |> send_resp(resp.status_code, resp.body)
@@ -71,9 +72,8 @@ defmodule PlausibleProxy.Plug do
     conn
   end
 
-  defp build_headers(conn, opts, optional_headers \\ []) do
+  defp build_headers(conn, ip_address, optional_headers \\ []) do
     user_agent = get_one_header(conn, "user-agent")
-    ip_address = determine_ip_address(conn, opts)
 
     [
       {"X-Forwarded-For", ip_address},
@@ -93,8 +93,8 @@ defmodule PlausibleProxy.Plug do
       List.to_string(:inet.ntoa(conn.remote_ip))
   end
 
-  defp post_event(conn, opts, payload, payload_modifiers) do
-    headers = build_headers(conn, opts, [{"Content-Type", "application/json"}])
+  defp post_event(conn, payload, remote_ip_address, payload_modifiers) do
+    headers = build_headers(conn, remote_ip_address, [{"Content-Type", "application/json"}])
 
     body = %{
       "name" => payload["n"],
