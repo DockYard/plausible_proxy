@@ -35,7 +35,8 @@ defmodule PlausibleProxy.Plug do
 
   @impl Plug
   def call(%{request_path: path} = conn, %{local_path: path} = opts) do
-    headers = build_headers(conn, opts)
+    remote_ip_address = determine_ip_address(conn, opts)
+    headers = build_headers(conn, remote_ip_address)
 
     case HTTPoison.get(script(opts), headers) do
       {:ok, resp} ->
@@ -51,7 +52,7 @@ defmodule PlausibleProxy.Plug do
 
   def call(%Plug.Conn{request_path: "/api/event"} = conn, opts) do
     with {:ok, body, conn} <- read_body(conn),
-         {:ok, payload} <- Jason.decode(body) |> IO.inspect(),
+         {:ok, payload} <- Jason.decode(body),
          remote_ip_address = determine_ip_address(conn, opts),
          {:ok, payload_modifiers} <- opts.event_callback_fn.(conn, payload, remote_ip_address),
          {:ok, resp} <- post_event(conn, payload, remote_ip_address, payload_modifiers) do
