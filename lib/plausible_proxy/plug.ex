@@ -3,7 +3,7 @@ defmodule PlausibleProxy.Plug do
 
   Plug Opts:
       local_path: "/some_path.js" (defaults to "/js/plausible_script.js")
-      allow_localhost: true (defaults to false) https://plausible.io/docs/script-extensions#all-our-script-extensions
+      script_extension: "script.local.js" (defaults to "script.js") See: https://plausible.io/docs/script-extensions#all-our-script-extensions
       remote_ip_headers: ["foo"] (defaults to ["fly-client-ip", "x-real-ip"])
       event_callback_fn: Optional callback function when an event fires that receives the conn, payload, and remote_ip
                         and returns {:ok, payload_modifiers}. payload_modifiers is a map
@@ -25,16 +25,16 @@ defmodule PlausibleProxy.Plug do
     %{
       event_callback_fn: Keyword.get(opts, :event_callback_fn, fn _conn, _payload, _remote_ip -> {:ok, %{}} end),
       local_path: Keyword.get(opts, :local_path, @default_local_path),
-      allow_localhost: Keyword.get(opts, :allow_localhost, false),
+      script_extension: Keyword.get(opts, :script_extension, "script.js"),
       remote_ip_headers: Keyword.get(opts, :remote_ip_headers, ["fly-client-ip", "x-real-ip"])
     }
   end
 
-  defp script(%{allow_localhost: true}), do: "https://plausible.io/js/script.tagged-events.pageview-props.local.js"
-  defp script(%{allow_localhost: false}), do: "https://plausible.io/js/script.tagged-events.pageview-props.js"
+  defp script(%{script_extension: ext}), do: "https://plausible.io/js/#{ext}"
 
   @impl Plug
   def call(%{request_path: path} = conn, %{local_path: path} = opts) do
+    Logger.warn("Loading script for path #{path} from #{script(opts)}")
     remote_ip_address = determine_ip_address(conn, opts)
     headers = build_headers(conn, remote_ip_address)
 
