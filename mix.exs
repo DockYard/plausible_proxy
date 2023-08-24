@@ -23,7 +23,8 @@ defmodule PlausibleProxy.MixProject do
     [
       {:plug, "~> 1.11"},
       {:httpoison, "~> 2.1"},
-      {:jason, "~> 1.4"}
+      {:jason, "~> 1.4"},
+      {:ex_doc, "~> 0.30.5", only: :dev, runtime: false}
       # {:dep_from_hexpm, "~> 0.3.0"},
       # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
     ]

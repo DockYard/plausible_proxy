@@ -1,15 +1,43 @@
 defmodule PlausibleProxy.Plug do
   @moduledoc """
+  A plug to intercept:
+    * GET calls for the plausible script
+    * POST calls to `/api/event`
 
-  Plug Opts:
-      local_path: "/some_path.js" (defaults to "/js/plausible_script.js")
-      script_extension: "script.local.js" (defaults to "script.js") See: https://plausible.io/docs/script-extensions#all-our-script-extensions
-      remote_ip_headers: ["foo"] (defaults to ["fly-client-ip", "x-real-ip"])
-      event_callback_fn: Optional callback function when an event fires that receives the conn, payload, and remote_ip
-                        and returns {:ok, payload_modifiers}. payload_modifiers is a map
-                              Supported payload_modifiers:
-                                props: map of values to pass in the "props" value of the body
-                                        e.g. %{"company" => "DockYard"}
+  Options:
+    * `local_path` is the local server path to serve up plausible js file from
+      * Defaults to `"/js/plausible_script.js"`
+    * `script_extension` is the specific script to download from plausible.
+      * See: https://plausible.io/docs/script-extensions#all-our-script-extensions
+      * Defaults to `"script.js"`
+    * `remote_ip_headers` is a list of headers to search for inbound remote ip
+      * First value found will populate the `X-Forwarded-For` header on requests to Plausible
+      * If none are found in request, `PlausibleProxy` will use `conn.remote_ip`
+      * Defaults to `["fly-client-ip", "x-real-ip"]`
+    * `event_callback_fn` is an optional callback function to call when an event fires
+      * Defaults to return empty map
+
+
+  Event Callback Function:
+    * 3 arity function that receives `conn`, `payload`, and `remote_ip`
+    * Returns `{:ok, payload_modifiers}` where `payload_modifiers` is a Map of key/value pairs to modify the event payload sent to Plausible
+
+  Supported payload_modifiers:
+    * `props` is a map of values to pass in the "props" value of the event payload body sent to Plausible
+      * e.g. `%{props: %{"company" => "DockYard"}}`
+
+  ## Example
+
+      defmodule MyApp.Endpoint do
+        ...
+
+        plug PlausibleProxy.Plug,
+          event_callback_fn: fn _, _, _ -> {:ok, %{props: %{"site" => "mysite.com"}}},
+          remote_ip_headers: ["x-myhosting-remote-ip"],
+          script_extension: "script.pageview-props.js"
+
+        ...
+      end
 
   """
   @behaviour Plug
@@ -19,14 +47,16 @@ defmodule PlausibleProxy.Plug do
   import Plug.Conn
 
   @default_local_path "/js/plausible_script.js"
+  @default_script_extension "script.js"
+  @default_remote_ip_headers ["fly-client-ip", "x-real-ip"]
 
   @impl Plug
   def init(opts) do
     %{
       event_callback_fn: Keyword.get(opts, :event_callback_fn, fn _conn, _payload, _remote_ip -> {:ok, %{}} end),
       local_path: Keyword.get(opts, :local_path, @default_local_path),
-      script_extension: Keyword.get(opts, :script_extension, "script.js"),
-      remote_ip_headers: Keyword.get(opts, :remote_ip_headers, ["fly-client-ip", "x-real-ip"])
+      script_extension: Keyword.get(opts, :script_extension, @default_script_extension),
+      remote_ip_headers: Keyword.get(opts, :remote_ip_headers, @default_remote_ip_headers)
     }
   end
 
