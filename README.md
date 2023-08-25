@@ -31,4 +31,4 @@ end
 ></script>
 ```
 
-See [PlausibleProxy.Plug](lib/plausible_proxy/plug.ex) for optional configuration.
+See [PlausibleProxy.Plug](https://hexdocs.pm/plausible_proxy/PlausibleProxy.Plug.html) for optional configuration.
