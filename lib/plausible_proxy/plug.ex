@@ -119,7 +119,7 @@ defmodule PlausibleProxy.Plug do
     |> List.first()
   end
 
-  def determine_ip_address(conn, %{remote_ip_headers: remote_ip_headers}) do
+  defp determine_ip_address(conn, %{remote_ip_headers: remote_ip_headers}) do
     Enum.find(remote_ip_headers, &get_one_header(conn, &1)) ||
       List.to_string(:inet.ntoa(conn.remote_ip))
   end
