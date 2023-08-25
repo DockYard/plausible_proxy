@@ -16,6 +16,7 @@ end
 defmodule MyAppWeb.Endpoint do
   ...
   plug PlausibleProxy.Plug
+  ...
   plug MyAppWeb.Router
 end
 ```
