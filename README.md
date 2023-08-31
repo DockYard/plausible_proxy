@@ -5,7 +5,7 @@
 ```elixir
 def deps do
   [
-    {:plausible_proxy, "~> 0.1.0"}
+    {:plausible_proxy, "~> 0.1.1"}
   ]
 end
 ```
