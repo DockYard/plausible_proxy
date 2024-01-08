@@ -130,7 +130,8 @@ defmodule PlausibleProxy.Plug do
     body = %{
       "name" => payload["n"],
       "url" => payload["u"],
-      "domain" => payload["d"]
+      "domain" => payload["d"],
+      "referrer" => payload["r"]
     }
 
     body =
