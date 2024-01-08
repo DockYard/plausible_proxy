@@ -42,8 +42,6 @@ defmodule PlausibleProxy.Plug do
   """
   @behaviour Plug
 
-  require Logger
-
   import Plug.Conn
 
   @default_local_path "/js/plausible_script.js"
@@ -64,7 +62,6 @@ defmodule PlausibleProxy.Plug do
 
   @impl Plug
   def call(%{request_path: path} = conn, %{local_path: path} = opts) do
-    Logger.warn("Loading script for path #{path} from #{script(opts)}")
     remote_ip_address = determine_ip_address(conn, opts)
     headers = build_headers(conn, remote_ip_address)
 
