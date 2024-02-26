@@ -42,6 +42,7 @@ defmodule PlausibleProxy.Plug do
   """
   @behaviour Plug
 
+  require Logger
   import Plug.Conn
 
   @default_local_path "/js/plausible_script.js"
@@ -72,7 +73,8 @@ defmodule PlausibleProxy.Plug do
         |> send_resp(resp.status_code, resp.body)
         |> halt()
 
-      _ ->
+      {:error, error} ->
+        Logger.error("plausible_proxy failed to get script, got: #{Exception.message(error)}")
         conn
     end
   end
@@ -88,9 +90,11 @@ defmodule PlausibleProxy.Plug do
       |> send_resp(resp.status_code, resp.body)
       |> halt()
     else
-      _error ->
+      error ->
+        Logger.error("plausible_proxy failed to POST /api/event, got: #{Exception.message(error)}")
+
         conn
-        |> send_resp(500, "Reverse Proxy failed")
+        |> send_resp(500, "plausible_proxy failed to POST /api/event")
         |> halt()
     end
   end
@@ -137,22 +141,12 @@ defmodule PlausibleProxy.Plug do
         _ -> body
       end
 
-    case HTTPoison.post("https://plausible.io/api/event", Jason.encode!(body), headers) do
-      {:ok, resp} ->
-        {:ok, resp}
-
+    with {:ok, body} <- Jason.encode(body),
+         {:ok, resp} <- HTTPoison.post("https://plausible.io/api/event", body, headers) do
+      {:ok, resp}
+    else
       {:error, error} ->
-        message = """
-        failed to post Plausible event
-
-        Got:
-
-          #{inspect(error)}
-
-        """
-
-        Logger.error(message)
-
+        Logger.error("plausible_proxy failed to POST /api/event, got: #{Exception.message(error)}")
         {:error, error}
     end
   end
