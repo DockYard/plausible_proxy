@@ -91,7 +91,7 @@ defmodule PlausibleProxy.Plug do
       |> halt()
     else
       error ->
-        Logger.error("plausible_proxy failed to POST /api/event, got: #{Exception.message(error)}")
+        Logger.error("plausible_proxy failed to POST /api/event, got: #{inspect(error)}")
 
         conn
         |> send_resp(500, "plausible_proxy failed to POST /api/event")
