@@ -81,7 +81,7 @@ defmodule PlausibleProxy.Plug do
         conn =
           conn
           |> prepend_resp_headers(headers)
-          |> send_resp(resp.status_code, resp.body)
+          |> send_resp(resp.status, resp.body)
           |> halt()
 
         dbg(conn)
@@ -106,7 +106,7 @@ defmodule PlausibleProxy.Plug do
       conn =
         conn
         |> prepend_resp_headers(headers)
-        |> send_resp(resp.status_code, resp.body)
+        |> send_resp(resp.status, resp.body)
         |> halt()
 
       dbg(conn)
