@@ -48,9 +48,9 @@ defmodule PlausibleProxy.MixProject do
   defp deps do
     [
       {:plug, "~> 1.11"},
-      {:httpoison, "~> 2.1"},
+      {:req, "~> 0.4"},
       {:jason, "~> 1.4"},
-      {:ex_doc, "~> 0.30.5", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.30", only: :dev, runtime: false}
     ]
   end
 end

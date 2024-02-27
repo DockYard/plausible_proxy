@@ -68,14 +68,13 @@ defmodule PlausibleProxy.Plug do
     remote_ip_address = determine_ip_address(conn, opts)
     headers = build_headers(conn, remote_ip_address)
 
-    dbg(remote_ip_address)
     dbg(headers)
 
-    {:ok, resp} = HTTPoison.get(script(opts), headers)
+    {:ok, resp} = Req.get(script(opts), headers: headers)
     dbg(resp)
     dbg(byte_size(resp.body))
 
-    case HTTPoison.get(script(opts), headers) do
+    case Req.get(script(opts), headers: headers) do
       {:ok, resp} ->
         conn =
           conn
@@ -160,14 +159,13 @@ defmodule PlausibleProxy.Plug do
         _ -> body
       end
 
-    dbg(body)
-    dbg(body |> Jason.encode!() |> byte_size())
     dbg(headers)
+    dbg(body)
 
-    with {:ok, body} <- Jason.encode(body),
-         {:ok, resp} <- HTTPoison.post("https://plausible.io/api/event", body, headers) do
-      {:ok, resp}
-    else
+    case Req.post("https://plausible.io/api/event", body: body, headers: headers) do
+      {:ok, resp} ->
+        {:ok, resp}
+
       {:error, error} ->
         Logger.error("plausible_proxy failed to POST /api/event, got: #{Exception.message(error)}")
         {:error, error}
