@@ -66,21 +66,22 @@ defmodule PlausibleProxy.Plug do
     dbg(path)
 
     remote_ip_address = determine_ip_address(conn, opts)
-    headers = build_headers(conn, remote_ip_address)
+    req_headers = req_headers(conn, remote_ip_address)
 
-    dbg(headers)
+    dbg(req_headers)
 
-    {:ok, resp} = Req.get(script(opts), headers: headers)
+    {:ok, resp} = Req.get(script(opts), headers: req_headers)
     dbg(resp)
     dbg(byte_size(resp.body))
 
-    case Req.get(script(opts), headers: headers) do
+    case Req.get(script(opts), headers: req_headers) do
       {:ok, resp} ->
-        headers = headers(resp)
+        resp_headers = resp_headers(resp)
+        dbg(resp_headers)
 
         conn =
           conn
-          |> prepend_resp_headers(headers)
+          |> prepend_resp_headers(resp_headers)
           |> send_resp(resp.status, resp.body)
           |> halt()
 
@@ -101,11 +102,11 @@ defmodule PlausibleProxy.Plug do
          remote_ip_address = determine_ip_address(conn, opts),
          {:ok, payload_modifiers} <- opts.event_callback_fn.(conn, payload, remote_ip_address),
          {:ok, resp} <- post_event(conn, payload, remote_ip_address, payload_modifiers) do
-      headers = headers(resp)
+      resp_headers = resp_headers(resp)
 
       conn =
         conn
-        |> prepend_resp_headers(headers)
+        |> prepend_resp_headers(resp_headers)
         |> send_resp(resp.status, resp.body)
         |> halt()
 
@@ -126,7 +127,36 @@ defmodule PlausibleProxy.Plug do
     conn
   end
 
-  defp build_headers(conn, ip_address, optional_headers \\ []) do
+  defp post_event(conn, payload, remote_ip_address, payload_modifiers) do
+    req_headers = req_headers(conn, remote_ip_address, [{"content-type", "application/json"}])
+
+    body = %{
+      "name" => payload["n"],
+      "url" => payload["u"],
+      "domain" => payload["d"],
+      "referrer" => payload["r"]
+    }
+
+    body =
+      case payload_modifiers do
+        %{props: props} -> Map.put(body, "props", props)
+        _ -> body
+      end
+
+    dbg(req_headers)
+    dbg(body)
+
+    case Req.post("https://plausible.io/api/event", body: body, headers: req_headers) do
+      {:ok, resp} ->
+        {:ok, resp}
+
+      {:error, error} ->
+        Logger.error("plausible_proxy failed to POST /api/event, got: #{Exception.message(error)}")
+        {:error, error}
+    end
+  end
+
+  defp req_headers(conn, ip_address, optional_headers \\ []) do
     user_agent = get_one_header(conn, "user-agent")
 
     [
@@ -147,36 +177,7 @@ defmodule PlausibleProxy.Plug do
       List.to_string(:inet.ntoa(conn.remote_ip))
   end
 
-  defp post_event(conn, payload, remote_ip_address, payload_modifiers) do
-    headers = build_headers(conn, remote_ip_address, [{"content-type", "application/json"}])
-
-    body = %{
-      "name" => payload["n"],
-      "url" => payload["u"],
-      "domain" => payload["d"],
-      "referrer" => payload["r"]
-    }
-
-    body =
-      case payload_modifiers do
-        %{props: props} -> Map.put(body, "props", props)
-        _ -> body
-      end
-
-    dbg(headers)
-    dbg(body)
-
-    case Req.post("https://plausible.io/api/event", body: body, headers: headers) do
-      {:ok, resp} ->
-        {:ok, resp}
-
-      {:error, error} ->
-        Logger.error("plausible_proxy failed to POST /api/event, got: #{Exception.message(error)}")
-        {:error, error}
-    end
-  end
-
-  defp headers(resp) do
+  defp resp_headers(resp) do
     Enum.map(resp.headers, fn {k, v} -> {k, Enum.join(v, ", ")} end)
   end
 end
