@@ -130,8 +130,8 @@ defmodule PlausibleProxy.Plug do
     user_agent = get_one_header(conn, "user-agent")
 
     [
-      {"X-Forwarded-For", ip_address},
-      {"User-Agent", user_agent}
+      {"x-forwarded-for", ip_address},
+      {"user-agent", user_agent}
       | optional_headers
     ]
   end
@@ -148,7 +148,7 @@ defmodule PlausibleProxy.Plug do
   end
 
   defp post_event(conn, payload, remote_ip_address, payload_modifiers) do
-    headers = build_headers(conn, remote_ip_address, [{"Content-Type", "application/json"}])
+    headers = build_headers(conn, remote_ip_address, [{"content-type", "application/json"}])
 
     body = %{
       "name" => payload["n"],
