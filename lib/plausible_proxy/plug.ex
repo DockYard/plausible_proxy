@@ -76,12 +76,9 @@ defmodule PlausibleProxy.Plug do
 
     case Req.get(script(opts), headers: req_headers) do
       {:ok, resp} ->
-        resp_headers = resp_headers(resp)
-        dbg(resp_headers)
-
         conn =
           conn
-          |> prepend_resp_headers(resp_headers)
+          |> put_resp_headers(resp)
           |> send_resp(resp.status, resp.body)
           |> halt()
 
@@ -102,11 +99,9 @@ defmodule PlausibleProxy.Plug do
          remote_ip_address = determine_ip_address(conn, opts),
          {:ok, payload_modifiers} <- opts.event_callback_fn.(conn, payload, remote_ip_address),
          {:ok, resp} <- post_event(conn, payload, remote_ip_address, payload_modifiers) do
-      resp_headers = resp_headers(resp)
-
       conn =
         conn
-        |> prepend_resp_headers(resp_headers)
+        |> put_resp_headers(resp)
         |> send_resp(resp.status, resp.body)
         |> halt()
 
@@ -177,7 +172,11 @@ defmodule PlausibleProxy.Plug do
       List.to_string(:inet.ntoa(conn.remote_ip))
   end
 
-  defp resp_headers(resp) do
-    Enum.map(resp.headers, fn {k, v} -> {k, Enum.join(v, ", ")} end)
+  # to avoid sending duplicate headers to the client
+  # Req already lowercases so we don't need to worry about that
+  defp put_resp_headers(conn, resp) do
+    Enum.reduce(resp.headers, conn, fn {k, v}, acc ->
+      put_resp_header(acc, k, Enum.join(v, ", "))
+    end)
   end
 end
