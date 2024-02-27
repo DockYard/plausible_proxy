@@ -76,9 +76,11 @@ defmodule PlausibleProxy.Plug do
 
     case Req.get(script(opts), headers: headers) do
       {:ok, resp} ->
+        headers = Enum.into(resp.headers, [])
+
         conn =
           conn
-          |> prepend_resp_headers(resp.headers)
+          |> prepend_resp_headers(headers)
           |> send_resp(resp.status_code, resp.body)
           |> halt()
 
@@ -99,9 +101,11 @@ defmodule PlausibleProxy.Plug do
          remote_ip_address = determine_ip_address(conn, opts),
          {:ok, payload_modifiers} <- opts.event_callback_fn.(conn, payload, remote_ip_address),
          {:ok, resp} <- post_event(conn, payload, remote_ip_address, payload_modifiers) do
+      headers = Enum.into(resp.headers, [])
+
       conn =
         conn
-        |> prepend_resp_headers(resp.headers)
+        |> prepend_resp_headers(headers)
         |> send_resp(resp.status_code, resp.body)
         |> halt()
 
