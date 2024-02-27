@@ -71,10 +71,11 @@ defmodule PlausibleProxy.Plug do
     dbg(remote_ip_address)
     dbg(headers)
 
-    resp = HTTPoison.get(script(opts), headers)
+    {:ok, resp} = HTTPoison.get(script(opts), headers)
     dbg(resp)
+    dbg(byte_size(resp.body))
 
-    case resp do
+    case HTTPoison.get(script(opts), headers) do
       {:ok, resp} ->
         conn =
           conn
