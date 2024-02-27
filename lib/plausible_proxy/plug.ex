@@ -76,7 +76,7 @@ defmodule PlausibleProxy.Plug do
 
     case Req.get(script(opts), headers: headers) do
       {:ok, resp} ->
-        headers = Enum.into(resp.headers, [])
+        headers = headers(resp)
 
         conn =
           conn
@@ -101,7 +101,7 @@ defmodule PlausibleProxy.Plug do
          remote_ip_address = determine_ip_address(conn, opts),
          {:ok, payload_modifiers} <- opts.event_callback_fn.(conn, payload, remote_ip_address),
          {:ok, resp} <- post_event(conn, payload, remote_ip_address, payload_modifiers) do
-      headers = Enum.into(resp.headers, [])
+      headers = headers(resp)
 
       conn =
         conn
@@ -174,5 +174,9 @@ defmodule PlausibleProxy.Plug do
         Logger.error("plausible_proxy failed to POST /api/event, got: #{Exception.message(error)}")
         {:error, error}
     end
+  end
+
+  defp headers(resp) do
+    Enum.map(resp.headers, fn {k, v} -> {k, Enum.join(v, ", ")} end)
   end
 end
