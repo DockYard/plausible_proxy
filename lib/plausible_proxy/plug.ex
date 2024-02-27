@@ -175,8 +175,11 @@ defmodule PlausibleProxy.Plug do
   # to avoid sending duplicate headers to the client
   # Req already lowercases so we don't need to worry about that
   defp put_resp_headers(conn, resp) do
-    Enum.reduce(resp.headers, conn, fn {k, v}, acc ->
-      put_resp_header(acc, k, Enum.join(v, ", "))
-    end)
+    conn =
+      Enum.reduce(resp.headers, conn, fn {k, v}, acc ->
+        put_resp_header(acc, k, Enum.join(v, ", "))
+      end)
+
+    dbg(conn)
   end
 end
