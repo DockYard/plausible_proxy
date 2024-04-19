@@ -6,6 +6,7 @@ defmodule PlausibleProxy.MixProject do
       app: :plausible_proxy,
       version: "0.1.1",
       elixir: "~> 1.14",
+      elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: description(),
@@ -44,7 +45,9 @@ defmodule PlausibleProxy.MixProject do
     "https://github.com/DockYard/plausible_proxy"
   end
 
-  # Run "mix help deps" to learn about dependencies.
+  defp elixirc_paths(:test), do: elixirc_paths(nil) ++ ["test/support"]
+  defp elixirc_paths(_), do: ["lib"]
+
   defp deps do
     [
       {:plug, "~> 1.11"},

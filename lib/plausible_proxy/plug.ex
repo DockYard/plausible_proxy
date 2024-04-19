@@ -43,7 +43,7 @@ defmodule PlausibleProxy.Plug do
   @behaviour Plug
 
   require Logger
-  import Plug.Conn
+  alias Plug.Conn
 
   @default_local_path "/js/plausible_script.js"
   @default_script_extension "script.js"
@@ -69,9 +69,9 @@ defmodule PlausibleProxy.Plug do
     case HTTPoison.get(script(opts), headers) do
       {:ok, resp} ->
         conn
-        |> prepend_resp_headers(resp.headers)
-        |> send_resp(resp.status_code, resp.body)
-        |> halt()
+        |> merge_resp_headers(resp.headers)
+        |> Conn.send_resp(resp.status_code, resp.body)
+        |> Conn.halt()
 
       {:error, error} ->
         Logger.error("plausible_proxy failed to get script, got: #{Exception.message(error)}")
@@ -80,22 +80,22 @@ defmodule PlausibleProxy.Plug do
   end
 
   def call(%Plug.Conn{request_path: "/api/event"} = conn, opts) do
-    with {:ok, body, conn} <- read_body(conn),
+    with {:ok, body, conn} <- Conn.read_body(conn),
          {:ok, payload} <- Jason.decode(body),
          remote_ip_address = determine_ip_address(conn, opts),
          {:ok, payload_modifiers} <- opts.event_callback_fn.(conn, payload, remote_ip_address),
          {:ok, resp} <- post_event(conn, payload, remote_ip_address, payload_modifiers) do
       conn
-      |> prepend_resp_headers(resp.headers)
-      |> send_resp(resp.status_code, resp.body)
-      |> halt()
+      |> merge_resp_headers(resp.headers)
+      |> Conn.send_resp(resp.status_code, resp.body)
+      |> Conn.halt()
     else
       error ->
         Logger.error("plausible_proxy failed to POST /api/event, got: #{inspect(error)}")
 
         conn
-        |> send_resp(500, "plausible_proxy failed to POST /api/event")
-        |> halt()
+        |> Conn.send_resp(500, "plausible_proxy failed to POST /api/event")
+        |> Conn.halt()
     end
   end
 
@@ -116,8 +116,18 @@ defmodule PlausibleProxy.Plug do
 
   defp get_one_header(conn, header_key) do
     conn
-    |> Plug.Conn.get_req_header(header_key)
+    |> Conn.get_req_header(header_key)
     |> List.first()
+  end
+
+  @doc false
+  # Plug.Conn.merge_resp_headers/2 wrapper that lowercases header keys before merging,
+  # to avoid dropping requests due to mixed headers keys in the response.
+  def merge_resp_headers(%Conn{resp_headers: current} = conn, headers) do
+    downcase_headers = fn headers -> Enum.map(headers, fn {k, v} -> {String.downcase(k), v} end) end
+    conn = %{conn | resp_headers: downcase_headers.(current)}
+    headers = downcase_headers.(headers)
+    Conn.merge_resp_headers(conn, headers)
   end
 
   defp determine_ip_address(conn, %{remote_ip_headers: remote_ip_headers}) do
