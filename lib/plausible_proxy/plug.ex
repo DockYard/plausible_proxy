@@ -63,17 +63,22 @@ defmodule PlausibleProxy.Plug do
 
   @impl Plug
   def call(%{request_path: path} = conn, %{local_path: path} = opts) do
-    remote_ip_address = determine_ip_address(conn, opts)
-    headers = build_headers(conn, remote_ip_address)
+    dbg(conn)
+    remote_ip_address = determine_ip_address(conn, opts) |> dbg
+    headers = build_headers(conn, remote_ip_address) |> dbg
 
-    case HTTPoison.get(script(opts), headers) do
+    dbg(script(opts))
+
+    case HTTPoison.get(script(opts), headers) |> dbg do
       {:ok, resp} ->
         conn
         |> prepend_resp_headers(resp.headers)
         |> send_resp(resp.status_code, resp.body)
         |> halt()
+        |> dbg()
 
       {:error, error} ->
+        dbg(error)
         Logger.error("plausible_proxy failed to get script, got: #{Exception.message(error)}")
         conn
     end
