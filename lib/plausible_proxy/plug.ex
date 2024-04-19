@@ -75,7 +75,7 @@ defmodule PlausibleProxy.Plug do
         dbg(byte_size(resp.body))
 
         conn
-        |> prepend_resp_headers(resp.headers)
+        # |> prepend_resp_headers(resp.headers)
         |> send_resp(resp.status_code, resp.body)
         |> halt()
         |> dbg()
