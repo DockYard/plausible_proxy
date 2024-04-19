@@ -71,6 +71,9 @@ defmodule PlausibleProxy.Plug do
 
     case HTTPoison.get(script(opts), headers) |> dbg do
       {:ok, resp} ->
+        dbg(resp.body)
+        dbg(byte_size(resp.body))
+
         conn
         |> prepend_resp_headers(resp.headers)
         |> send_resp(resp.status_code, resp.body)
